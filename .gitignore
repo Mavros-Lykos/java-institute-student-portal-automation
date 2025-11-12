@@ -1,0 +1,22 @@
+.credentials.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+venv/
+.env/
+env/
+
+# Playwright stuff
+playwright-report/
+test-results/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
