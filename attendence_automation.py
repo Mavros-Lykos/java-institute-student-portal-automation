@@ -29,14 +29,26 @@ def mark_attendance(page):
     print("[*] Opening attendance panel...")
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(1000)
-
-    page.locator("#online_attendance_panel").click()
+    panel = page.locator("#online_attendance_panel")
+    panel.click()
     page.wait_for_timeout(1500)
 
     print("[*] Submitting attendance...")
 
-    # Click the button first
-    page.get_by_role("button", name="Submit").click()
+    # Click the Submit button inside the opened attendance panel to avoid matching
+    # multiple global "Submit" buttons on the page (strict mode violation).
+    try:
+        submit_btn = panel.get_by_role("button", name="Submit").first
+        submit_btn.wait_for(state="visible", timeout=5000)
+        submit_btn.click()
+    except Exception as e:
+        # Fallback: try to click the first visible Submit button on the page
+        print(f"[!] Could not click panel Submit (fallback): {e}")
+        try:
+            fallback = page.get_by_role("button", name="Submit").first
+            fallback.click()
+        except Exception as e2:
+            print(f"[!] Fallback also failed: {e2}")
 
     # Wait for popup (alert)
     try:
