@@ -34,31 +34,51 @@ def mark_attendance(page):
     page.wait_for_timeout(1500)
 
     print("[*] Submitting attendance...")
+    
+    # Iterate and submit all available attendance entries inside the panel.
+    # Use a safe maximum to avoid infinite loops if the page content doesn't update.
+    max_attempts = 10
+    attempt = 0
+    submitted_any = False
 
-    # Click the Submit button inside the opened attendance panel to avoid matching
-    # multiple global "Submit" buttons on the page (strict mode violation).
-    try:
-        submit_btn = panel.get_by_role("button", name="Submit").first
-        submit_btn.wait_for(state="visible", timeout=5000)
-        submit_btn.click()
-    except Exception as e:
-        # Fallback: try to click the first visible Submit button on the page
-        print(f"[!] Could not click panel Submit (fallback): {e}")
+    while attempt < max_attempts:
+        submits = panel.get_by_role("button", name="Submit")
         try:
-            fallback = page.get_by_role("button", name="Submit").first
-            fallback.click()
-        except Exception as e2:
-            print(f"[!] Fallback also failed: {e2}")
+            count = submits.count()
+        except Exception:
+            count = 0
 
-    # Wait for popup (alert)
-    try:
-        # Listen for the next alert/dialog
-        dialog = page.wait_for_event("dialog", timeout=5000)
-        print(f"[+] Alert message: {dialog.message}")
-        dialog.accept()
-        print("[+] Alert accepted successfully!")
-    except Exception as e:
-        print(f"[!] No alert appeared (maybe already marked or something changed): {e}")
+        if count == 0:
+            break
+
+        try:
+            btn = submits.first
+            btn.wait_for(state="visible", timeout=3000)
+            btn.click()
+            submitted_any = True
+            print(f"[+] Clicked Submit (attempt {attempt+1})")
+
+            # Handle any dialog that appears after submitting
+            try:
+                dialog = page.wait_for_event("dialog", timeout=5000)
+                print(f"[+] Alert message: {dialog.message}")
+                dialog.accept()
+                print("[+] Alert accepted successfully!")
+            except Exception as e:
+                print(f"[!] No alert after submit (or timed out): {e}")
+
+            # Allow the page to update after the submission
+            page.wait_for_timeout(1500)
+        except Exception as e:
+            print(f"[!] Could not click a Submit button inside the panel: {e}")
+            break
+
+        attempt += 1
+        # short pause before checking for more
+        page.wait_for_timeout(500)
+
+    if not submitted_any:
+        print("[!] No Submit buttons found inside the attendance panel.")
 
     page.wait_for_timeout(2000)
     print("[+] Attendance submission flow complete.")
