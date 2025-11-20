@@ -33,54 +33,82 @@ def mark_attendance(page):
     panel.click()
     page.wait_for_timeout(1500)
 
-    print("[*] Submitting attendance...")
-    
-    # Iterate and submit all available attendance entries inside the panel.
-    # Use a safe maximum to avoid infinite loops if the page content doesn't update.
+    print("[*] Searching for attendance entries to submit...")
+
+    # Loop to submit all available attendance entries
     max_attempts = 10
     attempt = 0
-    submitted_any = False
+    submitted_count = 0
 
     while attempt < max_attempts:
-        submits = panel.get_by_role("button", name="Submit")
+        # Find all Submit buttons inside the attendance panel
+        submit_buttons = panel.get_by_role("button", name="Submit")
+        
         try:
-            count = submits.count()
+            count = submit_buttons.count()
         except Exception:
             count = 0
 
         if count == 0:
+            print(f"[+] No more attendance entries found (checked {attempt+1} times)")
             break
 
-        try:
-            btn = submits.first
-            btn.wait_for(state="visible", timeout=3000)
-            btn.click()
-            submitted_any = True
-            print(f"[+] Clicked Submit (attempt {attempt+1})")
+        print(f"[*] Found {count} attendance entry/entries to submit")
 
-            # Handle any dialog that appears after submitting
+        try:
+            # Get the first Submit button
+            submit_btn = submit_buttons.first
+            
+            # Try to extract class details from the parent card/container
+            try:
+                # Navigate up to the col-md-6 div that contains the class info
+                card_container = submit_btn.locator("xpath=ancestor::div[contains(@class, 'col-md-6')][1]")
+                class_details = card_container.inner_text(timeout=3000)
+                
+                # Clean up and format the details for display
+                details_lines = [line.strip() for line in class_details.split('\n') if line.strip() and 'Submit' not in line]
+                if details_lines:
+                    print(f"\n{'='*60}")
+                    print(f"[+] Marking attendance for:")
+                    for line in details_lines[:5]:  # Show first 5 lines to avoid clutter
+                        print(f"    {line}")
+                    print(f"{'='*60}\n")
+                else:
+                    print(f"[+] Marking attendance (attempt {submitted_count + 1})")
+            except Exception as e:
+                print(f"[+] Marking attendance (attempt {submitted_count + 1})")
+
+            # Wait for button to be visible and click it
+            submit_btn.wait_for(state="visible", timeout=5000)
+            submit_btn.click()
+            print(f"[+] Clicked Submit button")
+
+            # Handle the confirmation dialog
             try:
                 dialog = page.wait_for_event("dialog", timeout=5000)
                 print(f"[+] Alert message: {dialog.message}")
                 dialog.accept()
                 print("[+] Alert accepted successfully!")
             except Exception as e:
-                print(f"[!] No alert after submit (or timed out): {e}")
+                print(f"[!] No alert appeared (maybe already marked): {e}")
 
-            # Allow the page to update after the submission
-            page.wait_for_timeout(1500)
+            submitted_count += 1
+            
+            # Wait for the page to update after submission
+            page.wait_for_timeout(2000)
+            
         except Exception as e:
-            print(f"[!] Could not click a Submit button inside the panel: {e}")
+            print(f"[!] Error while trying to submit attendance: {e}")
             break
 
         attempt += 1
-        # short pause before checking for more
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(500)  # Small pause before next check
 
-    if not submitted_any:
-        print("[!] No Submit buttons found inside the attendance panel.")
-
-    page.wait_for_timeout(2000)
+    if submitted_count == 0:
+        print("[!] No attendance entries were submitted. All might be already marked.")
+    else:
+        print(f"\n[+] Successfully submitted {submitted_count} attendance entry/entries!")
+    
     print("[+] Attendance submission flow complete.")
 
 # --------------------- Main ---------------------
